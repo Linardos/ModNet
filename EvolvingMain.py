@@ -10,7 +10,7 @@ import torch.utils.data
 import torchvision.transforms as transforms
 import torchvision.datasets as datasets
 import torchvision.models as models
-import EvolvingModel as Model
+import OneModel as Model
 
 import matplotlib.pyplot as plt
 
@@ -23,8 +23,10 @@ if torch.cuda.is_available():
 TASK_NUMBER = 2 #Current task Starting from 1
 MODULAR = True
 
+pooling_num = int(28 / ((TASK_NUMBER - 1)*2)) if TASK_NUMBER > 1 else 28
+
 start_epoch = 0
-epochs = 30
+epochs = 5
 weight_decay = 1e-4
 learning_rate = 0.1
 batch_size = 256
@@ -42,35 +44,40 @@ def main():
     # ======= ====== ======= =======
     # ===== Defining The Model =====
     print("Using model resnet18")
-
-    model = Model.ModNet([2, 2, 2], num_classes=1)
+    blocklist = [2,2]
+    stride = [1,2] #the length of these lists is the number of residual blocks, the first list defines how many layers each block will have and the second the number of strides
+    for i in range(TASK_NUMBER-1):
+        blocklist.append(2)
+        stride.append(2)
+    model = Model.ModNet(blocklist=blocklist, stride=stride, pooling_num=pooling_num, num_classes=1)
 
     # define loss function (criterion) and optimizer
     criterion = nn.BCEWithLogitsLoss().cuda()
 
     optimizer = torch.optim.Adam(model.parameters(), learning_rate,
-                                weight_decay=weight_decay)
-
+                                    weight_decay=weight_decay)
     if TASK_NUMBER > 1 and MODULAR:
         # original saved file with DataParallel
         checkpoint = torch.load(prev_model_loader)['state_dict']
         # create new OrderedDict that does not contain `module.`
-        """
         from collections import OrderedDict
         new_state_dict = OrderedDict()
         for k, v in checkpoint.items():
             name = k[7:] # remove `module.`
             new_state_dict[name] = v
-        """
         # load params
-        model.load_state_dict(checkpoint)
-        print("Succesfully Loaded Last Model")
-        model = Model.One_More_Module(model).cuda()
-    else:
-        model = model.cuda
+        #The fully connected is discarded
+        del new_state_dict['fc.weight']
+        del new_state_dict['fc.bias']
+        model.load_state_dict(new_state_dict, strict=False) #We only want to match part of the model
+        model.freeze(new_state_dict)
 
+    print("Succesfully Loaded Last Model")
 
-    #model = torch.nn.DataParallel(model).cuda()
+    #model = Model.One_More_Module(model.stacked_layers)
+
+    #model = model.cuda()
+    model = torch.nn.DataParallel(model).cuda()
     cudnn.benchmark = True #https://discuss.pytorch.org/t/what-does-torch-backends-cudnn-benchmark-do/5936
 
     # ====== ===== ====== ======
@@ -151,7 +158,7 @@ def main():
 
     torch.save({
     'epoch': epoch + 1,
-    'state_dict': model.state_dict(),
+    'state_dict': model.cpu().state_dict(),
     'optimizer' : optimizer.state_dict()
     }, 'Module_{}.pt'.format(TASK_NUMBER))
 
@@ -261,7 +268,7 @@ def validate(val_loader, model, criterion, losses = None, accuracies = None, pre
         target_var = torch.autograd.Variable(target, volatile=True)
         #print("input %f"%input_var.data)
         # compute output
-        output = model(input_var)
+        output = model.forward(input_var)
         loss = criterion(output, target_var)
 
         losses.update(loss.data[0])

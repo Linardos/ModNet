@@ -23,6 +23,7 @@ class BasicBlock(nn.Module):
     expansion = 1
 
     def __init__(self, inplanes, planes, stride=1, projection=None):
+
         super(BasicBlock, self).__init__()
         self.conv1 = conv3x3(inplanes, planes, stride)
         self.bn1 = nn.BatchNorm2d(planes)
@@ -33,6 +34,7 @@ class BasicBlock(nn.Module):
         self.stride = stride
 
     def forward(self, x):
+
         #print(x.size())
         residual = x
 
@@ -102,8 +104,14 @@ class Bottleneck(nn.Module):
 
 class ModNet(nn.Module):
     #use num_blocks to for loop dictionary creation in order to automate layer making
-    def __init__(self, blocklist, num_classes=1, stride = [1,2,2], block=BasicBlock):
+    def __init__(self, blocklist, stride, pooling_num, num_classes=1, block=BasicBlock):
+        """
+        _make_block creates a residual block like those used in ResNet.
+        LastUpdatedOrderedDict is a subclass of OrderedDict that stores items in the order the keys were last added
+        """
+
         #blocklist specifies the number of layers in each block
+
         self.inplanes = 64
         super(ModNet, self).__init__()
 
@@ -116,15 +124,15 @@ class ModNet(nn.Module):
                 ('maxpool', nn.MaxPool2d(kernel_size=3, stride=2, padding=1)),
                 ("layer1", self._make_block(block, 64, blocklist[0], stride=stride[0]))
                 ])
-        p = 128
+        p = 64
         for i in range(1,len(blocklist)):
+            p = 2*p
             layer = self._make_block(block, p, blocklist[i], stride=stride[i])
             layers.__setitem__("layer{}".format(i+1), layer)
-            p = 2*p
 
         self.stacked_layers = nn.Sequential(layers)
-        self.avgpool = nn.AvgPool2d(14, stride=1)
-        self.fc = nn.Linear(256 * block.expansion, num_classes)
+        self.avgpool = nn.AvgPool2d(pooling_num, stride=1)
+        self.fc = nn.Linear(p * block.expansion, num_classes)
         #Weight Initialization (Supposedly from : Delving deep into rectifiers: Surpassing human-level performance on imagenet classification.  In ICCV , 2015.)
         for m in self.modules():
             if isinstance(m, nn.Conv2d): #if m is an instance of class Conv2d
@@ -137,19 +145,26 @@ class ModNet(nn.Module):
     def _make_block(self, block, planes, blocklist, stride=1):
         projection = None #projection is used to match the dimension of the residual to the matrix to which it is added
         if stride != 1 or self.inplanes != planes * block.expansion:
-            projection = nn.Sequential(
-                nn.Conv2d(self.inplanes, planes * block.expansion,
-                          kernel_size=1, stride=stride, bias=False),
-                nn.BatchNorm2d(planes * block.expansion),
-            )
+            projection = nn.Sequential(LastUpdatedOrderedDict([
+                ('conv', nn.Conv2d(self.inplanes, planes * block.expansion,
+                          kernel_size=1, stride=stride, bias=False)),
+                ('bn', nn.BatchNorm2d(planes * block.expansion)),
+            ]))
 
-        layers = []
-        layers.append(block(self.inplanes, planes, stride, projection))
+        layers = LastUpdatedOrderedDict()
+        layers.__setitem__("block{}".format(0), block(self.inplanes, planes, stride, projection))
         self.inplanes = planes * block.expansion
         for i in range(1, blocklist):
-            layers.append(block(self.inplanes, planes))
+            layers.__setitem__("block{}".format(i), block(self.inplanes, planes))
 
-        return nn.Sequential(*layers)
+        return nn.Sequential(layers)
+
+    def freeze(self, state_dict, do_print=True):
+        for key in state_dict.keys():
+            #The parameters were given as a string input so we need to use eval
+            eval('self.'+key).requires_grad = False
+            if eval('self.'+key).requires_grad == False and do_print==True:
+                print(repr('self.'+key), "succesfully frozen")
 
     def forward(self, x, Classify=True):
 
@@ -157,78 +172,14 @@ class ModNet(nn.Module):
 
         if Classify == True:
 
-            x = self.avgpool(x)
-            x = x.view(x.size(0), -1)
-            x = self.fc(x)
-
-            return x
-
-        else:
-
-            return x
-
-
-
-from torch.nn.parallel import data_parallel
-
-class One_More_Module(nn.Module): #Maybe use as input the trained module?
-
-    def __init__(self, pretrained_model, layers=2, num_classes=1, block=[Bottleneck, BasicBlock]):
-        self.inplanes = 256 #changed from 64 This is the number of channels the makeblock expects
-        super(One_More_Module, self).__init__()
-
-        self.trained_conv = pretrained_model.stacked_layers
-        self.next_layer = self._make_block(block[0], 512, layers, stride=2)
-        self.avgpool = nn.AvgPool2d(7, stride=1)
-        self.fc = nn.Linear(512 * block[0].expansion, num_classes)
-        for m in self.next_layer.modules():
-            if isinstance(m, nn.Conv2d): #if m is an instance of class Conv2d
-                n = m.kernel_size[0] * m.kernel_size[1] * m.out_channels
-                m.weight.data.normal_(0, math.sqrt(2. / n))
-            elif isinstance(m, nn.BatchNorm2d):
-                m.weight.data.fill_(1)
-                m.bias.data.zero_()
-
-        for param in self.trained_conv.parameters():
-            param.requires_grad = False
-
-    def _make_block(self, block, planes, blocklist, stride=1):
-        projection = None
-        #print(planes*block.expansion)
-        if stride != 1 or self.inplanes != planes * block.expansion:
-            projection = nn.Sequential(
-                nn.Conv2d(self.inplanes, planes * block.expansion,
-                          kernel_size=1, stride=stride, bias=False),
-                nn.BatchNorm2d(planes * block.expansion),
-            )
-
-        layers = []
-        layers.append(block(self.inplanes, planes, stride, projection))
-        self.inplanes = planes * block.expansion #increase the number of channels relative to block expansion
-        for i in range(1, blocklist):
-            layers.append(block(self.inplanes, planes))
-
-        return nn.Sequential(*layers)
-
-
-    def forward(self, x, Classify=True):
-        #print('pre-block')
-        #print(x.size())
-        #print('pre-block')
-        x = self.trained_conv(x)
-        #x = data_parallel(self.next_layer, x)
-        x = self.next_layer(x)
-        #print('after-block')
-        #print(x.size())
-        #print('after-block')
-
-        if Classify == True:
-
+            #print("Start here")
+            #print(x.size())
             x = self.avgpool(x)
             #print(x.size())
             x = x.view(x.size(0), -1)
             #print(x.size())
             x = self.fc(x)
+            #print(x.size())
 
             return x
 
