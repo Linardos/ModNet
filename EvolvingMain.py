@@ -20,13 +20,13 @@ if torch.cuda.is_available():
 
 #=============== Hyperparameters =================#
 
-TASK_NUMBER = 2 #Current task Starting from 1
+TASK_NUMBER = 1 #Current task Starting from 1
 MODULAR = True
 
 pooling_num = int(28 / ((TASK_NUMBER - 1)*2)) if TASK_NUMBER > 1 else 28
 
 start_epoch = 0
-epochs = 5
+epochs = 126
 weight_decay = 1e-4
 learning_rate = 0.1
 batch_size = 256
@@ -49,6 +49,7 @@ def main():
     for i in range(TASK_NUMBER-1):
         blocklist.append(2)
         stride.append(2)
+
     model = Model.ModNet(blocklist=blocklist, stride=stride, pooling_num=pooling_num, num_classes=1)
 
     # define loss function (criterion) and optimizer
@@ -61,18 +62,18 @@ def main():
         checkpoint = torch.load(prev_model_loader)['state_dict']
         # create new OrderedDict that does not contain `module.`
         from collections import OrderedDict
-        new_state_dict = OrderedDict()
+        trained_state_dict = OrderedDict()
         for k, v in checkpoint.items():
             name = k[7:] # remove `module.`
-            new_state_dict[name] = v
+            trained_state_dict[name] = v
         # load params
         #The fully connected is discarded
-        del new_state_dict['fc.weight']
-        del new_state_dict['fc.bias']
-        model.load_state_dict(new_state_dict, strict=False) #We only want to match part of the model
-        model.freeze(new_state_dict)
+        del trained_state_dict['fc.weight']
+        del trained_state_dict['fc.bias']
+        model.load_state_dict(trained_state_dict, strict=False) #We only want to match part of the model
+        print("Succesfully Loaded Last Model")
+        model.freeze(trained_state_dict)
 
-    print("Succesfully Loaded Last Model")
 
     #model = Model.One_More_Module(model.stacked_layers)
 
