@@ -104,7 +104,7 @@ class Bottleneck(nn.Module):
 
 class ModNet(nn.Module):
     #use num_blocks to for loop dictionary creation in order to automate layer making
-    def __init__(self, blocklist, stride, pooling_num, num_classes=1, block=BasicBlock):
+    def __init__(self, blocklist, stride, pooling_num, num_classes=1, block=[BasicBlock, BasicBlock]):
         """
         _make_block creates a residual block like those used in ResNet.
         LastUpdatedOrderedDict is a subclass of OrderedDict that stores items in the order the keys were last added
@@ -122,17 +122,17 @@ class ModNet(nn.Module):
                 ('bn1', nn.BatchNorm2d(64)),
                 ('relu1', nn.ReLU(inplace=True)),
                 ('maxpool', nn.MaxPool2d(kernel_size=3, stride=2, padding=1)),
-                ("layer1", self._make_block(block, 64, blocklist[0], stride=stride[0]))
+                ("layer1", self._make_block(block[0], 64, blocklist[0], stride=stride[0]))
                 ])
         p = 64
         for i in range(1,len(blocklist)):
             p = 2*p
-            layer = self._make_block(block, p, blocklist[i], stride=stride[i])
+            layer = self._make_block(block[i], p, blocklist[i], stride=stride[i])
             layers.__setitem__("layer{}".format(i+1), layer)
 
         self.stacked_layers = nn.Sequential(layers)
         self.avgpool = nn.AvgPool2d(pooling_num, stride=1)
-        self.fc = nn.Linear(p * block.expansion, num_classes)
+        self.fc = nn.Linear(p * block[-1].expansion, num_classes)
         #Weight Initialization (Supposedly from : Delving deep into rectifiers: Surpassing human-level performance on imagenet classification.  In ICCV , 2015.)
         for m in self.modules():
             if isinstance(m, nn.Conv2d): #if m is an instance of class Conv2d

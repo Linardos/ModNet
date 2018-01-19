@@ -10,7 +10,8 @@ import torch.utils.data
 import torchvision.transforms as transforms
 import torchvision.datasets as datasets
 import torchvision.models as models
-import OneModel as Model
+import EvolvingModel as Model
+from EvolvingModel import Bottleneck, BasicBlock
 
 import matplotlib.pyplot as plt
 
@@ -20,13 +21,13 @@ if torch.cuda.is_available():
 
 #=============== Hyperparameters =================#
 
-TASK_NUMBER = 1 #Current task Starting from 1
+TASK_NUMBER = 2 #Current task Starting from 1
 MODULAR = True
 
 pooling_num = int(28 / ((TASK_NUMBER - 1)*2)) if TASK_NUMBER > 1 else 28
 
 start_epoch = 0
-epochs = 126
+epochs = 35
 weight_decay = 1e-4
 learning_rate = 0.1
 batch_size = 256
@@ -45,12 +46,15 @@ def main():
     # ===== Defining The Model =====
     print("Using model resnet18")
     blocklist = [2,2]
-    stride = [1,2] #the length of these lists is the number of residual blocks, the first list defines how many layers each block will have and the second the number of strides
+    stride = [1,2]
+    block_type = [BasicBlock, BasicBlock] #the length of these lists is the number of residual blocks, the first list defines how many layers each block will have and the second the number of strides and the last one which type of block to be used
     for i in range(TASK_NUMBER-1):
-        blocklist.append(2)
-        stride.append(2)
+        blocklist += [2]
+        stride += [2]
+        block_type += [BasicBlock]
 
-    model = Model.ModNet(blocklist=blocklist, stride=stride, pooling_num=pooling_num, num_classes=1)
+
+    model = Model.ModNet(blocklist=blocklist, stride=stride, pooling_num=pooling_num, block=block_type, num_classes=1)
 
     # define loss function (criterion) and optimizer
     criterion = nn.BCEWithLogitsLoss().cuda()
@@ -132,7 +136,7 @@ def main():
 
     # ====== ===== ====== ===== ======
     # ===== ===== Training ===== =====
-
+    start = time.clock()
     for epoch in range(start_epoch, epochs):
         adjust_learning_rate(optimizer, epoch)
 
@@ -157,6 +161,7 @@ def main():
             test_precision.append(precision.avg)
             test_recall.append(recall.avg)
 
+    print("Total training time for {} epochs was {}".format(epochs, time.clock()-start))
     torch.save({
     'epoch': epoch + 1,
     'state_dict': model.cpu().state_dict(),
@@ -196,9 +201,9 @@ def main():
     plt.xticks(list(range(start_epoch, epochs, plot_every*2)))
 
     if MODULAR:
-        plt.savefig("ModularNet Training Task {}".format(TASK_NUMBER))
+        plt.savefig("ModularNet_Training_Task_{}".format(TASK_NUMBER))
     else:
-        plt.savefig("SimpleNet Training Task {}".format(TASK_NUMBER))
+        plt.savefig("SimpleNet_Training_Task_{}".format(TASK_NUMBER))
 
 
     # ====== ====== ====== ====== #
