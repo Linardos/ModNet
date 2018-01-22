@@ -22,12 +22,12 @@ if torch.cuda.is_available():
 #=============== Hyperparameters =================#
 
 TASK_NUMBER = 2 #Current task Starting from 1
-MODULAR = True
+MODULAR = False
 
 pooling_num = int(28 / ((TASK_NUMBER - 1)*2)) if TASK_NUMBER > 1 else 28
 
 start_epoch = 0
-epochs = 35
+epochs = 120
 weight_decay = 1e-4
 learning_rate = 0.1
 batch_size = 256
