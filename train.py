@@ -16,7 +16,6 @@ from EvolvingModel import BasicBlock, Bottleneck
 
 import matplotlib.pyplot as plt
 
-from skorch.net import NeuralNetClassifier
 
 dtype = torch.FloatTensor
 if torch.cuda.is_available():
@@ -24,24 +23,23 @@ if torch.cuda.is_available():
 
 #=============== Hyperparameters =================#
 
-TASK_NUMBER = 1 #Current task Starting from 1
+TASK_NUMBER = 2 #Current task Starting from 1
 MODULAR = True
 
 pooling_num = int(28 / ((TASK_NUMBER - 1)*2)) if TASK_NUMBER > 1 else 28
 
 start_epoch = 0
-epochs = 120
+epochs = 126
 momentum = 0.9
 weight_decay = 1e-4
 learning_rate = 0.1
 batch_size = 256
 print_freq = 20
-plot_every = 5
+plot_every = 9
 
 #=================================================#
 
 prev_model_loader = "Module_{}.pt".format(TASK_NUMBER-1)
-path = './Task_{}/'.format(TASK_NUMBER)
 
 #=================================================#
 
@@ -53,23 +51,23 @@ test_losses = []
 train_accuracies = []
 test_accuracies = []
 
-train_precision = []
-test_precision = []
+train_sensitivities = []
+test_sensitivities = []
 
-train_recall = []
-test_recall = []
-
-
-def main():
+train_specificities = []
+test_specificities = []
 
 
+def main(task_number = TASK_NUMBER):
+
+    path_to_task = './Task_{}/'.format(task_number)
     # ======= ====== ======= =======
     # ===== Defining The Model =====
     print("Using model resnet18")
     blocklist = [2,2]
     stride = [1,2]
     block_type = [BasicBlock, BasicBlock] #the length of these lists is the number of residual blocks, the first list defines how many layers each block will have and the second the number of strides and the last one which type of block to be used
-    for i in range(TASK_NUMBER-1):
+    for i in range(task_number-1):
         blocklist += [2]
         stride += [2]
         block_type += [BasicBlock]
@@ -85,7 +83,7 @@ def main():
 
     optimizer = torch.optim.SGD(model.parameters(), learning_rate,
                                 momentum=momentum, weight_decay=weight_decay)
-    if TASK_NUMBER > 1 and MODULAR:
+    if task_number > 1 and MODULAR:
         # original saved file with DataParallel
         checkpoint = torch.load(prev_model_loader)['state_dict']
         # create new OrderedDict that does not contain `module.`
@@ -111,8 +109,8 @@ def main():
 
     # ====== ===== ====== ======
     # ====== Loading Data ======
-    traindir = os.path.join(path, 'train')
-    valdir = os.path.join(path, 'val')
+    traindir = os.path.join(path_to_task, 'train')
+    valdir = os.path.join(path_to_task, 'val')
     #normalize to remove all intensity values from the image while preserving color values
     normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
                                      std=[0.229, 0.224, 0.225])
@@ -159,10 +157,11 @@ def main():
     'epoch': epoch + 1,
     'state_dict': model.cpu().state_dict(),
     'optimizer' : optimizer.state_dict()
-    }, 'Module_{}.pt'.format(TASK_NUMBER))
+    }, 'Module_{}.pt'.format(task_number))
 
     # ===== ===== ===== ===== #
     # ======  Plotting ====== #
+
     plt.subplot(221)
     plt.plot(list(range(start_epoch,epochs, plot_every)), train_losses, label = "Training Loss")
     plt.plot(list(range(start_epoch,epochs, plot_every)), test_losses, label = "Test Loss")
@@ -178,26 +177,27 @@ def main():
     plt.xlabel("Epoch")
     plt.ylabel("Accuracy")
     plt.xticks(list(range(start_epoch, epochs, plot_every*2)))
-    """
+
     plt.subplot(223)
-    plt.plot(list(range(start_epoch,epochs, plot_every)), test_precision, label = "Test Precision")
+    plt.plot(list(range(start_epoch,epochs, plot_every)), train_sensitivities, label = "Training Sensitivity")
+    plt.plot(list(range(start_epoch,epochs, plot_every)), test_sensitivities, label = "Test Sensitivity")
     plt.legend()
     plt.xlabel("Epoch")
-    plt.ylabel("Precision")
+    plt.ylabel("Sensitivity")
     plt.xticks(list(range(start_epoch, epochs, plot_every*2)))
 
     plt.subplot(224)
-    plt.plot(list(range(start_epoch,epochs, plot_every)), test_recall, label = "Test Recall")
+    plt.plot(list(range(start_epoch,epochs, plot_every)), train_specificities, label = "Training Specificity")
+    plt.plot(list(range(start_epoch,epochs, plot_every)), test_specificities, label = "Test Specificity")
     plt.legend()
     plt.xlabel("Epoch")
-    plt.ylabel("Recall")
+    plt.ylabel("Specificity")
     plt.xticks(list(range(start_epoch, epochs, plot_every*2)))
 
-    """
     if MODULAR:
-        plt.savefig("ModularNet_Training_Task_{}".format(TASK_NUMBER))
+        plt.savefig("ModularNet_Training_Task_{}".format(task_number))
     else:
-        plt.savefig("SimpleNet_Training_Task_{}".format(TASK_NUMBER))
+        plt.savefig("SimpleNet_Training_Task_{}".format(task_number))
 
 
     # ====== ====== ====== ====== #
@@ -212,6 +212,8 @@ def train(train_loader, model, criterion, optimizer, epoch, accuracies = None):
 
     accuracies = []
     losses = []
+    sensitivities = []
+    specificities = []
 
     for i, (input, target) in enumerate(train_loader):
 
@@ -234,14 +236,19 @@ def train(train_loader, model, criterion, optimizer, epoch, accuracies = None):
         metrics = Metrics(predicted_probabilities, target_var)
 
         accuracies.append(metrics.accuracy())
+        sensitivities.append(metrics.sensitivity())
+        specificities.append(metrics.specificity())
 
         if i % print_freq == 0:
             print('Epoch: [{}][{}/{}]\t Loss {} (Average {})\t'.format(
                    epoch, i, len(train_loader), losses[i], mean(losses)))
 
+    #Append the global lists, to be used for plotting in the end
     if epoch % plot_every == 0:
         train_accuracies.append(mean(accuracies))
         train_losses.append(mean(losses))
+        train_specificities.append(mean(specificities))
+        train_sensitivities.append(mean(sensitivities))
 
 
 
@@ -252,13 +259,15 @@ def validate(val_loader, model, criterion, epoch, accuracies = None, precision =
 
     accuracies = []
     losses = []
+    sensitivities = []
+    specificities = []
 
     for i, (input, target) in enumerate(val_loader):
 
         target = target.type(dtype).unsqueeze(0).t().cuda(async=True)
         input_var = Variable(input.type(dtype), volatile=True)
         target_var = Variable(target, volatile=True)
-        NeuralNetClassifier
+
         # Compute output
         output = model.forward(input_var)
         loss = criterion(output, target_var)
@@ -267,36 +276,46 @@ def validate(val_loader, model, criterion, epoch, accuracies = None, precision =
         # Calculate metrics. To get the predicted probabilities we need to add a Sigmoid layer
         predicted_probabilities = nn.Sigmoid()(output)
         metrics = Metrics(predicted_probabilities, target_var)
+
         accuracies.append(metrics.accuracy())
+        sensitivities.append(metrics.sensitivity())
+        specificities.append(metrics.specificity())
 
     print('Test: Loss Average {}\t'.format(mean(losses)))
+    #Append the global lists, to be used for plotting in the end
     if epoch % plot_every == 0:
         test_accuracies.append(mean(accuracies))
         test_losses.append(mean(losses))
+        test_specificities.append(mean(specificities))
+        test_sensitivities.append(mean(sensitivities))
 
 class Metrics(object):
 
     def __init__(self, predicted_probabilities, target):
         from sklearn import metrics
-        self.predicted_probabilities = predicted_probabilities.data.cpu()
-        self.target = target.data.cpu()
-        self.predictions = torch.zeros(self.predicted_probabilities.size())
-        self.predictions[self.predicted_probabilities > 0.5] = 1 #where the probability is higher than 0.5, label 1 is assigned
+        predicted_probabilities = predicted_probabilities.data.cpu()
+        self.predictions = torch.zeros(predicted_probabilities.size())
+        self.predictions[predicted_probabilities > 0.5] = 1 #where the probability is higher than 0.5, label 1 is assigned
         # save confusion matrix and slice into four pieces
-        """
-        confusion = metrics.confusion_matrix(y_test, y_pred_class)
-        print(confusion)
+        target = target.data.cpu()
+        self.confusion = metrics.confusion_matrix(target, self.predictions)
         #[row, column]
-        TP = confusion[1, 1]
-        TN = confusion[0, 0]
-        FP = confusion[0, 1]
-        FN = confusion[1, 0]
-        """
+        self.TP = self.confusion[1, 1] #true positives
+        self.TN = self.confusion[0, 0] #true negatives
+        self.FP = self.confusion[0, 1] #false positives
+        self.FN = self.confusion[1, 0] #false negatives
 
     def accuracy(self):
-        correct = (self.predictions == self.target).sum()
-        accuracy = correct/self.predictions.size()[0]
+        accuracy = (self.TP+self.TN)/self.predictions.size()[0]
         return accuracy
+
+    def sensitivity(self):
+        sensitivity = self.TP/(self.TP + self.FN)
+        return sensitivity
+
+    def specificity(self):
+        specificity = self.TN/(self.TN + self.FP)
+        return specificity
 
 
 def adjust_learning_rate(optimizer, epoch, decay_rate=0.1):
