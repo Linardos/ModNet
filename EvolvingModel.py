@@ -1,8 +1,7 @@
 import torch.nn as nn
 import math
 
-print('Succesfully imported Model module')
-
+print("wuba luba dub dub")
 def conv3x3(in_planes, out_planes, stride=1):
     "3x3 convolution with padding"
     return nn.Conv2d(in_planes, out_planes, kernel_size=3, stride=stride,
@@ -35,7 +34,6 @@ class BasicBlock(nn.Module):
 
     def forward(self, x):
 
-        #print(x.size())
         residual = x
 
         out = self.conv1(x)
@@ -50,7 +48,6 @@ class BasicBlock(nn.Module):
 
         out += residual
         out = self.relu(out)
-        #print(out.size())
 
         return out
 
@@ -75,30 +72,22 @@ class Bottleneck(nn.Module):
 
     def forward(self, x):
         residual = x
-        #print('Sizes while passing through the network: \n')
-        #print(x.size())
         out = self.conv1(x)
         out = self.bn1(out)
         out = self.relu(out)
-        #print(out.size())
 
         out = self.conv2(out)
         out = self.bn2(out)
         out = self.relu(out)
-        #print(out.size())
 
         out = self.conv3(out)
         out = self.bn3(out)
-        #print(out.size())
 
         if self.projection is not None:
             residual = self.projection(x)
 
         out += residual
         out = self.relu(out)
-        #print(out.size())
-        import time
-        time.sleep(60)
 
         return out
 
@@ -124,15 +113,19 @@ class ModNet(nn.Module):
                 ('maxpool', nn.MaxPool2d(kernel_size=3, stride=2, padding=1)),
                 ("layer1", self._make_block(block[0], 64, blocklist[0], stride=stride[0]))
                 ])
+
         p = 64
         for i in range(1,len(blocklist)):
-            p = 2*p
+            p = 2*p #the input dimensions double after each _make_block
             layer = self._make_block(block[i], p, blocklist[i], stride=stride[i])
             layers.__setitem__("layer{}".format(i+1), layer)
 
         self.stacked_layers = nn.Sequential(layers)
         self.avgpool = nn.AvgPool2d(pooling_num, stride=1)
-        self.fc = nn.Linear(p * block[-1].expansion, num_classes)
+
+        fc_in = p * block[-1].expansion
+
+        self.fc = nn.Linear(fc_in, num_classes)
         #Weight Initialization (Supposedly from : Delving deep into rectifiers: Surpassing human-level performance on imagenet classification.  In ICCV , 2015.)
         for m in self.modules():
             if isinstance(m, nn.Conv2d): #if m is an instance of class Conv2d
@@ -172,14 +165,9 @@ class ModNet(nn.Module):
 
         if Classify == True:
 
-            #print("Start here")
-            #print(x.size())
             x = self.avgpool(x)
-            #print(x.size())
             x = x.view(x.size(0), -1)
-            #print(x.size())
             x = self.fc(x)
-            #print(x.size())
 
             return x
 
