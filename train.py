@@ -1,6 +1,6 @@
 import os
 import time
-
+import pickle
 import numpy as np
 import torch
 import torch.nn as nn
@@ -13,9 +13,6 @@ import torchvision.models as models
 import EvolvingModel as Model
 from torch.autograd import Variable
 from EvolvingModel import BasicBlock, Bottleneck
-
-import matplotlib.pyplot as plt
-
 
 dtype = torch.FloatTensor
 if torch.cuda.is_available():
@@ -33,6 +30,7 @@ epochs = 126
 momentum = 0.9
 weight_decay = 1e-4
 learning_rate = 0.1
+decay_rate = 0.1
 batch_size = 256
 print_freq = 20
 plot_every = 9
@@ -60,7 +58,8 @@ test_specificities = []
 
 def main(task_number = TASK_NUMBER):
 
-    path_to_task = './Task_{}/'.format(task_number)
+    #path_to_task = './Task_{}/'.format(task_number)
+    path_to_task = './Task_2_balanced/'
     # ======= ====== ======= =======
     # ===== Defining The Model =====
     print("Using model resnet18")
@@ -143,9 +142,10 @@ def main(task_number = TASK_NUMBER):
 
     # ====== ===== ====== ===== ======
     # ===== ===== Training ===== =====
+
     start = time.clock()
     for epoch in range(start_epoch, epochs):
-        adjust_learning_rate(optimizer, epoch)
+        adjust_learning_rate(optimizer, epoch, decay_rate)
 
         # train for one epoch
         train(train_loader, model, criterion, optimizer, epoch)
@@ -153,54 +153,46 @@ def main(task_number = TASK_NUMBER):
         validate(val_loader, model, criterion, epoch)
 
     print("Total training time for {} epochs was {}".format(epochs, time.clock()-start))
-    torch.save({
-    'epoch': epoch + 1,
-    'state_dict': model.cpu().state_dict(),
-    'optimizer' : optimizer.state_dict()
-    }, 'Module_{}.pt'.format(task_number))
 
     # ===== ===== ===== ===== #
-    # ======  Plotting ====== #
+    # ======  Saving ====== #
+    torch.save({
+        'epoch': epoch + 1,
+        'state_dict': model.cpu().state_dict(),
+        'optimizer' : optimizer.state_dict()
+        }, 'Module_{}.pt'.format(task_number))
 
-    plt.subplot(221)
-    plt.plot(list(range(start_epoch,epochs, plot_every)), train_losses, label = "Training Loss")
-    plt.plot(list(range(start_epoch,epochs, plot_every)), test_losses, label = "Test Loss")
-    plt.legend()
-    plt.xlabel("Epoch")
-    plt.ylabel("Loss")
-    plt.xticks(list(range(start_epoch, epochs, plot_every*2)))
+    hyperparameters = {
+        'momentum' : momentum,
+        'weight_decay' : weight_decay,
+        'learning_rate' : learning_rate,
+        'decay_rate' : decay_rate,
+        'epochs' : epochs,
+        'batch_size' : batch_size
+    }
 
-    plt.subplot(222)
-    plt.plot(list(range(start_epoch,epochs, plot_every)), train_accuracies, label = "Training Accuracy")
-    plt.plot(list(range(start_epoch,epochs, plot_every)), test_accuracies, label = "Test Accuracy")
-    plt.legend()
-    plt.xlabel("Epoch")
-    plt.ylabel("Accuracy")
-    plt.xticks(list(range(start_epoch, epochs, plot_every*2)))
+    to_plot = {
+        'epoch_ticks': list(range(start_epoch,epochs, plot_every)),
+        'train_losses': train_losses,
+        'test_losses': test_losses,
+        'train_accuracies': train_accuracies,
+        'test_accuracies': test_accuracies,
+        'train_sensitivities': train_sensitivities,
+        'test_sensitivities': test_sensitivities,
+        'train_specificities': train_specificities,
+        'test_specificities': test_specificities
+        }
 
-    plt.subplot(223)
-    plt.plot(list(range(start_epoch,epochs, plot_every)), train_sensitivities, label = "Training Sensitivity")
-    plt.plot(list(range(start_epoch,epochs, plot_every)), test_sensitivities, label = "Test Sensitivity")
-    plt.legend()
-    plt.xlabel("Epoch")
-    plt.ylabel("Sensitivity")
-    plt.xticks(list(range(start_epoch, epochs, plot_every*2)))
+    model_config_and_performance = (hyperparameters, to_plot)
 
-    plt.subplot(224)
-    plt.plot(list(range(start_epoch,epochs, plot_every)), train_specificities, label = "Training Specificity")
-    plt.plot(list(range(start_epoch,epochs, plot_every)), test_specificities, label = "Test Specificity")
-    plt.legend()
-    plt.xlabel("Epoch")
-    plt.ylabel("Specificity")
-    plt.xticks(list(range(start_epoch, epochs, plot_every*2)))
+    """
+    with open('model_config_and_performance_{}.pkl'.format(task_number), 'wb') as handle:
+        pickle.dump(model_config_and_performance, handle, protocol=pickle.HIGHEST_PROTOCOL)
+    """
+    with open('model_config_and_performance_{}_balanced.pkl'.format(task_number), 'wb') as handle:
+        pickle.dump(model_config_and_performance, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
-    if MODULAR:
-        plt.savefig("ModularNet_Training_Task_{}".format(task_number))
-    else:
-        plt.savefig("SimpleNet_Training_Task_{}".format(task_number))
-
-
-    # ====== ====== ====== ====== #
+    # ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== =====  #
 
 mean = lambda x : sum(x)/len(x)
 
