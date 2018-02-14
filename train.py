@@ -28,7 +28,7 @@ FREEZE = True
 pooling_num = int(28 / ((TASK_TARGET[0] - 1)*2)) if TASK_TARGET[0] > 1 else 28
 
 start_epoch = 0
-epochs = 100
+epochs = 90
 momentum = 0.9
 weight_decay = 1e-4
 learning_rate = 0.1
@@ -99,24 +99,14 @@ def main(task_depth = TASK_TARGET[0], target_class = TASK_TARGET[1]):
             #The fully connected is discarded
             model.freeze(trained_state_dict)
 
-        if MODULAR:
-            # Varying learning rates
-            parameter_settings = []
-            param_dict = model.state_dict()
-            for key in param_dict:
-                if 'layer0' in key:
-                    parameter_settings.append({'params': nn.Parameter(param_dict[key]), 'lr':learning_rate*0.5})
-                elif 'layer1' in key:
-                    parameter_settings.append({'params': nn.Parameter(param_dict[key]), 'lr':learning_rate*0.7})
-                elif 'layer2' in key:
-                    parameter_settings.append({'params': nn.Parameter(param_dict[key]), 'lr':learning_rate*0.85})
-                else:
-                    parameter_settings.append({'params': nn.Parameter(param_dict[key])}) #Default learning rate
-
     if not MODULAR:
         optimizer = torch.optim.SGD(model.parameters(), learning_rate,
                                 momentum=momentum, weight_decay=weight_decay)
     else:
+        parameter_settings = [
+            {'params' : model.stacked_layers.layer1.parameters(), 'lr' : 0.5*learning_rate},
+            {'params' : model.stacked_layers.layer2.parameters(), 'lr' : 0.75*learning_rate}
+            ]
         optimizer = torch.optim.SGD(parameter_settings, learning_rate,
                         momentum=momentum, weight_decay=weight_decay)
     #model = Model.One_More_Module(model.stacked_layers)
@@ -152,6 +142,7 @@ def main(task_depth = TASK_TARGET[0], target_class = TASK_TARGET[1]):
         ]))
     #print(train_dataset.shape)
 
+    from samplers import StratifiedSampler
     train_loader = torch.utils.data.DataLoader(
         train_dataset, batch_size=batch_size, shuffle=True,
         num_workers=4, pin_memory=True)
