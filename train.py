@@ -20,13 +20,15 @@ if torch.cuda.is_available():
 
 #=============== Hyperparameters =================#
 
-TASK_NUMBER = 2 #Current task Starting from 1
-MODULAR = True
+TASK_TARGET = [1, 'Animals'] #level of task depth, target class
+prev_model_loader = "Module_1_Animals.pt"
+MODULAR = False
+FREEZE = True
 
-pooling_num = int(28 / ((TASK_NUMBER - 1)*2)) if TASK_NUMBER > 1 else 28
+pooling_num = int(28 / ((TASK_TARGET[0] - 1)*2)) if TASK_TARGET[0] > 1 else 28
 
 start_epoch = 0
-epochs = 126
+epochs = 100
 momentum = 0.9
 weight_decay = 1e-4
 learning_rate = 0.1
@@ -37,7 +39,6 @@ plot_every = 9
 
 #=================================================#
 
-prev_model_loader = "Module_{}.pt".format(TASK_NUMBER-1)
 
 #=================================================#
 
@@ -56,17 +57,16 @@ train_specificities = []
 test_specificities = []
 
 
-def main(task_number = TASK_NUMBER):
+def main(task_depth = TASK_TARGET[0], target_class = TASK_TARGET[1]):
 
-    #path_to_task = './Task_{}/'.format(task_number)
-    path_to_task = './Task_2_balanced/'
+    path_to_task = './Task_{}_{}/'.format(task_depth, target_class)
     # ======= ====== ======= =======
     # ===== Defining The Model =====
     print("Using model resnet18")
     blocklist = [2,2]
     stride = [1,2]
     block_type = [BasicBlock, BasicBlock] #the length of these lists is the number of residual blocks, the first list defines how many layers each block will have and the second the number of strides and the last one which type of block to be used
-    for i in range(task_number-1):
+    for i in range(task_depth-1):
         blocklist += [2]
         stride += [2]
         block_type += [BasicBlock]
@@ -80,9 +80,7 @@ def main(task_number = TASK_NUMBER):
     """
     criterion = nn.BCEWithLogitsLoss().cuda()
 
-    optimizer = torch.optim.SGD(model.parameters(), learning_rate,
-                                momentum=momentum, weight_decay=weight_decay)
-    if task_number > 1 and MODULAR:
+    if task_depth > 1:
         # original saved file with DataParallel
         checkpoint = torch.load(prev_model_loader)['state_dict']
         # create new OrderedDict that does not contain `module.`
@@ -92,14 +90,35 @@ def main(task_number = TASK_NUMBER):
             name = k[7:] # remove `module.`
             trained_state_dict[name] = v
         # load params
-        #The fully connected is discarded
         del trained_state_dict['fc.weight']
         del trained_state_dict['fc.bias']
+
         model.load_state_dict(trained_state_dict, strict=False) #We only want to match part of the model
         print("Succesfully Loaded Last Model")
-        model.freeze(trained_state_dict)
+        if FREEZE:
+            #The fully connected is discarded
+            model.freeze(trained_state_dict)
 
+        if MODULAR:
+            # Varying learning rates
+            parameter_settings = []
+            param_dict = model.state_dict()
+            for key in param_dict:
+                if 'layer0' in key:
+                    parameter_settings.append({'params': nn.Parameter(param_dict[key]), 'lr':learning_rate*0.5})
+                elif 'layer1' in key:
+                    parameter_settings.append({'params': nn.Parameter(param_dict[key]), 'lr':learning_rate*0.7})
+                elif 'layer2' in key:
+                    parameter_settings.append({'params': nn.Parameter(param_dict[key]), 'lr':learning_rate*0.85})
+                else:
+                    parameter_settings.append({'params': nn.Parameter(param_dict[key])}) #Default learning rate
 
+    if not MODULAR:
+        optimizer = torch.optim.SGD(model.parameters(), learning_rate,
+                                momentum=momentum, weight_decay=weight_decay)
+    else:
+        optimizer = torch.optim.SGD(parameter_settings, learning_rate,
+                        momentum=momentum, weight_decay=weight_decay)
     #model = Model.One_More_Module(model.stacked_layers)
 
     #model = model.cuda()
@@ -118,10 +137,18 @@ def main(task_number = TASK_NUMBER):
         traindir,
         transforms.Compose([
             transforms.Resize(256),
-            transforms.RandomResizedCrop(224),
-            transforms.RandomHorizontalFlip(),
+            transforms.CenterCrop(224),
             transforms.ToTensor(),
-            normalize,
+            normalize
+        ]))
+
+    val_dataset =  datasets.ImageFolder(
+        valdir,
+        transforms.Compose([
+            transforms.Resize(256),
+            transforms.CenterCrop(224),
+            transforms.ToTensor(),
+            normalize
         ]))
     #print(train_dataset.shape)
 
@@ -130,13 +157,7 @@ def main(task_number = TASK_NUMBER):
         num_workers=4, pin_memory=True)
 
     val_loader = torch.utils.data.DataLoader(
-        datasets.ImageFolder(valdir, transforms.Compose([
-            transforms.Resize(256),
-            transforms.CenterCrop(224),
-            transforms.ToTensor(),
-            normalize,
-        ])),
-        batch_size=batch_size, shuffle=True,
+        val_dataset, batch_size=batch_size, shuffle=True,
         num_workers=4, pin_memory=True)
 
 
@@ -160,7 +181,7 @@ def main(task_number = TASK_NUMBER):
         'epoch': epoch + 1,
         'state_dict': model.cpu().state_dict(),
         'optimizer' : optimizer.state_dict()
-        }, 'Module_{}.pt'.format(task_number))
+        }, 'Module_{}_{}.pt'.format(task_depth, target_class))
 
     hyperparameters = {
         'momentum' : momentum,
@@ -185,11 +206,7 @@ def main(task_number = TASK_NUMBER):
 
     model_config_and_performance = (hyperparameters, to_plot)
 
-    """
-    with open('model_config_and_performance_{}.pkl'.format(task_number), 'wb') as handle:
-        pickle.dump(model_config_and_performance, handle, protocol=pickle.HIGHEST_PROTOCOL)
-    """
-    with open('model_config_and_performance_{}_balanced.pkl'.format(task_number), 'wb') as handle:
+    with open('model_config_and_performance_{}_{}.pkl'.format(task_depth, target_class), 'wb') as handle:
         pickle.dump(model_config_and_performance, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
     # ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== =====  #
