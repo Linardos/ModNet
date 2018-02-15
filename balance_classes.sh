@@ -1,14 +1,14 @@
 
-count_t_0=$(ls -l ~/Documents/Deep_Learning/pytorch_imagenet/Task_2/train/0 | wc -l)
-count_v_0=$(ls -l ~/Documents/Deep_Learning/pytorch_imagenet/Task_2/val/0 | wc -l)
-count_t_1=$(ls -l ~/Documents/Deep_Learning/pytorch_imagenet/Task_2/train/1 | wc -l)
-count_v_1=$(ls -l ~/Documents/Deep_Learning/pytorch_imagenet/Task_2/val/1 | wc -l)
+count_t_0=$(ls -l ~/Documents/Deep_Learning/pytorch_imagenet/Task_1_Animals/train/0 | wc -l)
+count_v_0=$(ls -l ~/Documents/Deep_Learning/pytorch_imagenet/Task_1_Animals/val/0 | wc -l)
+count_t_1=$(ls -l ~/Documents/Deep_Learning/pytorch_imagenet/Task_1_Animals/train/1 | wc -l)
+count_v_1=$(ls -l ~/Documents/Deep_Learning/pytorch_imagenet/Task_1_Animals/val/1 | wc -l)
 
-if [ $count_t_0 > $count_t_1 ]
+if [ $count_t_0 -gt $count_t_1 ] #greater than
 then
     diff_t=$(($count_t_0-$count_t_1))
     diff_v=$(($count_v_0-$count_v_1))
-    check=$(echo 1)
+    check=$(echo 0)
 else
     diff_t=$(($count_t_1-$count_t_0))
     diff_v=$(($count_v_1-$count_v_0))
@@ -16,31 +16,33 @@ else
 fi
 
 
-cd ~/Documents/Deep_Learning/pytorch_imagenet/Task_2_balanced
+cd ~/Documents/Deep_Learning/pytorch_imagenet/Task_1_Animals
 
-if [ $check > 0 ]
+if [ $check -eq 0 ]
 then
-    echo $check
-    random_t=$(ls ~/Documents/Deep_Learning/pytorch_imagenet/Task_2_balanced/train/0 |sort -R |tail -$diff_t)
-    random_v=$(ls ~/Documents/Deep_Learning/pytorch_imagenet/Task_2_balanced/val/0|sort -R |tail -$diff_v)
+    #Remove from 0
+    echo $check is 0
+    random_t=$(ls ~/Documents/Deep_Learning/pytorch_imagenet/Task_1_Animals/train/0 |sort -R |tail -$diff_t)
+    random_v=$(ls ~/Documents/Deep_Learning/pytorch_imagenet/Task_1_Animals/val/0|sort -R |tail -$diff_v)
 
-    cd ~/Documents/Deep_Learning/pytorch_imagenet/Task_2_balanced/train/0
+    cd ~/Documents/Deep_Learning/pytorch_imagenet/Task_1_Animals/train/0
     for f in $random_t ; do
       rm "$f"
     done
-    cd ~/Documents/Deep_Learning/pytorch_imagenet/Task_2_balanced/val/0
+    cd ~/Documents/Deep_Learning/pytorch_imagenet/Task_1_Animals/val/0
     for f in $random_v ; do
       rm "$f"
     done
 else
-    echo $check
-    random_t=$(ls ~/Documents/Deep_Learning/pytorch_imagenet/Task_2_balanced/train/1 |sort -R |tail -$diff_t)
-    random_v=$(ls ~/Documents/Deep_Learning/pytorch_imagenet/Task_2_balanced/val/1|sort -R |tail -$diff_v)
-    cd ~/Documents/Deep_Learning/pytorch_imagenet/Task_2_balanced/train/1
+    #Remove from 1
+    echo $check is 1
+    random_t=$(ls ~/Documents/Deep_Learning/pytorch_imagenet/Task_1_Animals/train/1 |sort -R |tail -$diff_t)
+    random_v=$(ls ~/Documents/Deep_Learning/pytorch_imagenet/Task_1_Animals/val/1|sort -R |tail -$diff_v)
+    cd ~/Documents/Deep_Learning/pytorch_imagenet/Task_1_Animals/train/1
     for f in $random_t ; do
       rm "$f"
     done
-    cd ~/Documents/Deep_Learning/pytorch_imagenet/Task_2_balanced/val/1
+    cd ~/Documents/Deep_Learning/pytorch_imagenet/Task_1_Animals/val/1
     for f in $random_v ; do
       rm "$f"
     done

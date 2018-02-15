@@ -28,7 +28,7 @@ FREEZE = True
 pooling_num = int(28 / ((TASK_TARGET[0] - 1)*2)) if TASK_TARGET[0] > 1 else 28
 
 start_epoch = 0
-epochs = 90
+epochs = 72
 momentum = 0.9
 weight_decay = 1e-4
 learning_rate = 0.1
@@ -141,14 +141,28 @@ def main(task_depth = TASK_TARGET[0], target_class = TASK_TARGET[1]):
             normalize
         ]))
     #print(train_dataset.shape)
+    train_labels = []
+    for _, y in train_dataset:
+        train_labels.append(y)
+
+    val_labels = []
+    for _, y in val_dataset:
+        val_labels.append(y)
 
     from samplers import StratifiedSampler
+
+    y = torch.LongTensor(train_labels)
+    sampler = StratifiedSampler(class_vector=y, batch_size=256)
+
     train_loader = torch.utils.data.DataLoader(
-        train_dataset, batch_size=batch_size, shuffle=True,
+        train_dataset, batch_size=batch_size, sampler = sampler,
         num_workers=4, pin_memory=True)
 
+    y = torch.LongTensor(val_labels)
+    sampler = StratifiedSampler(class_vector=y, batch_size=256)
+
     val_loader = torch.utils.data.DataLoader(
-        val_dataset, batch_size=batch_size, shuffle=True,
+        val_dataset, batch_size=batch_size, sampler = sampler,
         num_workers=4, pin_memory=True)
 
 
