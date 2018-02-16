@@ -20,10 +20,13 @@ if torch.cuda.is_available():
 
 #=============== Hyperparameters =================#
 
-TASK_TARGET = [1, 'Animals'] #level of task depth, target class
+TASK_TARGET = [2, 'Canines'] #level of task depth, target class
 prev_model_loader = "Module_1_Animals.pt"
-MODULAR = False
+VLR = False #Varying Learning Rates
 FREEZE = True
+
+if FREEZE:
+    VLR = False
 
 pooling_num = int(28 / ((TASK_TARGET[0] - 1)*2)) if TASK_TARGET[0] > 1 else 28
 
@@ -62,7 +65,6 @@ def main(task_depth = TASK_TARGET[0], target_class = TASK_TARGET[1]):
     path_to_task = './Task_{}_{}/'.format(task_depth, target_class)
     # ======= ====== ======= =======
     # ===== Defining The Model =====
-    print("Using model resnet18")
     blocklist = [2,2]
     stride = [1,2]
     block_type = [BasicBlock, BasicBlock] #the length of these lists is the number of residual blocks, the first list defines how many layers each block will have and the second the number of strides and the last one which type of block to be used
@@ -90,23 +92,31 @@ def main(task_depth = TASK_TARGET[0], target_class = TASK_TARGET[1]):
             name = k[7:] # remove `module.`
             trained_state_dict[name] = v
         # load params
+        #The fully connected is discarded
         del trained_state_dict['fc.weight']
         del trained_state_dict['fc.bias']
 
         model.load_state_dict(trained_state_dict, strict=False) #We only want to match part of the model
-        print("Succesfully Loaded Last Model")
+        print("Succesfully Loaded Pre-Trained Layers")
         if FREEZE:
-            #The fully connected is discarded
             model.freeze(trained_state_dict)
 
-    if not MODULAR:
+    #The way things are defined currently is hard-coded, to move on to a 3rd task this needs to change. It is better to find a way so that this can happen dynamically.
+    if not VLR and not FREEZE:
         optimizer = torch.optim.SGD(model.parameters(), learning_rate,
+                                momentum=momentum, weight_decay=weight_decay)
+    elif FREEZE:
+        optimizer = torch.optim.SGD(model.stacked_layers.layer3.parameters(), learning_rate,
                                 momentum=momentum, weight_decay=weight_decay)
     else:
         parameter_settings = [
-            {'params' : model.stacked_layers.layer1.parameters(), 'lr' : 0.5*learning_rate},
-            {'params' : model.stacked_layers.layer2.parameters(), 'lr' : 0.75*learning_rate}
+            {'params' : model.stacked_layers.layer0_conv1.parameters(), 'lr' : 0.4*learning_rate},
+            {'params' : model.stacked_layers.layer0_bn1.parameters(), 'lr' : 0.4*learning_rate},
+            {'params' : model.stacked_layers.layer1.parameters(), 'lr' : 0.4*learning_rate},
+            {'params' : model.stacked_layers.layer2.parameters(), 'lr' : 0.65*learning_rate},
+            {'params' : model.stacked_layers.layer3.parameters()}
             ]
+        print("Per-Layer Learning Rates configuration activated")
         optimizer = torch.optim.SGD(parameter_settings, learning_rate,
                         momentum=momentum, weight_decay=weight_decay)
     #model = Model.One_More_Module(model.stacked_layers)
@@ -127,7 +137,8 @@ def main(task_depth = TASK_TARGET[0], target_class = TASK_TARGET[1]):
         traindir,
         transforms.Compose([
             transforms.Resize(256),
-            transforms.CenterCrop(224),
+            transforms.RandomResizedCrop(224),
+            transforms.RandomHorizontalFlip(),
             transforms.ToTensor(),
             normalize
         ]))
@@ -136,7 +147,8 @@ def main(task_depth = TASK_TARGET[0], target_class = TASK_TARGET[1]):
         valdir,
         transforms.Compose([
             transforms.Resize(256),
-            transforms.CenterCrop(224),
+            transforms.RandomResizedCrop(224),
+            transforms.RandomHorizontalFlip(),
             transforms.ToTensor(),
             normalize
         ]))

@@ -1,7 +1,7 @@
 import pickle
 import matplotlib.pyplot as plt
 
-task_number = 2
+Task_Target = '2_Canines'
 
 # To Load a file
 
@@ -10,7 +10,7 @@ with open('model_config_and_performance_{}.pkl'.format(task_number), 'rb') as ha
 
     hyperparameters, to_plot = pickle.load(handle)
 """
-with open('model_config_and_performance_{}.pkl'.format(task_number), 'rb') as handle:
+with open('model_config_and_performance_{}.pkl'.format(Task_Target), 'rb') as handle:
 
     hyperparameters, to_plot = pickle.load(handle)
 
@@ -49,4 +49,8 @@ plt.xticks(to_plot['epoch_ticks'])
 
 plt.tight_layout()
 
-plt.savefig("Performance_on_task_{}".format(task_number))
+plt.savefig('Performance_{}'.format(Task_Target))
+
+
+for key in to_plot.keys():
+    print("Final value in {} is {} \n".format(key, to_plot[key][-1]))
