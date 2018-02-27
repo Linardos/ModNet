@@ -2,6 +2,7 @@
 A Modular Neural Network applied on hierarchical classification of ImageNet data
 
 Task_1 : separating animals (canines and felines) from random pictures (flora, rock, geo formations, fungi, construction sites) 
+
 Use set_directories.py to create the directories train, val which split into the two classes 0 and 1. To make a new task change the following parameters within the code:
 
     path_0 = path_not_animals
