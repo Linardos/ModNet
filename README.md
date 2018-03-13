@@ -1,5 +1,5 @@
 # ModNet
-A Modular Neural Network applied on hierarchical classification of ImageNet data
+A Modular Neural Network applied on hierarchical classification of ImageNet data. The purpose of this experiment is to find out if implicitly indicating the semantic hierarchy yields improved performance.
 
 Task_1 : separating animals (canines and felines) from random pictures (flora, rock, geo formations, fungi, construction sites) 
 
