@@ -6,6 +6,7 @@ After the network was trained on animals, two separate extensions were trained o
 
 # Performance on Animals
 ![alt text](https://github.com/Linardos/ModNet/blob/master/Results/plot1.png)
+
 Figure 1: Training Results on the first level task with target class Animals. 5950 samples
 were loaded from each class, split 70/30 between train and test set. So far this a small
 ResNet architecture, this step is for the network to learn the highest class in the hierarchy:
@@ -13,6 +14,7 @@ Animals, nothing novel was used here.
 
 # Performance on Canines and Felines
 ![alt text](https://github.com/Linardos/ModNet/blob/master/Results/plot2.png)
+
 Figure 2: Training Results on a second level task with target class Canines the pretrained
 layers were loaded from the previous task on all layers. 3829 samples were loaded from
 each class, split 80/20 between train and test set. a) Different initial learning rates were
@@ -20,12 +22,14 @@ used per layer, the closer to the start the smaller the learning rate (learning 
 was 0.1, for layer2 0.1*0.65, for layer1 0.1*0.4). There is quite clearly overfit in both cases
 
 ![alt text](https://github.com/Linardos/ModNet/blob/master/Results/plot3.png)
+
 Figure 3: I used the preprocessing transformations this time on both the train and test set.
 These transformations are Random Resized Crop and Random Horizontal Flip. Overfit is
 drastically reduced. Training on the Frozen model was highly unstable so I increased the
 epoch number for this one
 
 ![alt text](https://github.com/Linardos/ModNet/blob/master/Results/plot4.png)
+
 Figure 4: This table demonstrates the results from a ”forgetting” test. After training the
 network on Task 2 I decided to look at whether the original layers remember the first task.
 So I loaded the first layers of the network to predict classes from Task 1. I gathered all of
