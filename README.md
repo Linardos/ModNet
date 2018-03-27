@@ -4,7 +4,7 @@ ModNet was an attempt at a neural network that learns semantical hierarchies fro
 
 After the network was trained on animals, two separate extensions were trained on canines and felines and finally a forgetting test was applied to assess the model's performance on the simple task of recognizing animals.
 
-
+![alt text](https://github.com/Linardos/ModNet/blob/master/Results/plot1.png)
 
 # How to Use
 
