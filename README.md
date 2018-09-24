@@ -21,7 +21,7 @@ Figure 2: Training Results on a second level task with target class Canines the 
 layers were loaded from the previous task on all layers. 3829 samples were loaded from
 each class, split 80/20 between train and test set. a) Different initial learning rates were
 used per layer, the closer to the start the smaller the learning rate (learning rate for layer3
-was 0.1, for layer2 0.1*0.65, for layer1 0.1*0.4). There is quite clearly overfit in both cases
+was 0.1, for layer2 0.1 * 0.65, for layer1 0.1 * 0.4). There is quite clearly overfit in both cases
 
 ![alt text](https://github.com/Linardos/ModNet/blob/master/Results/plot3.png)
 
