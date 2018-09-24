@@ -33,15 +33,13 @@ epoch number for this one
 ![alt text](https://github.com/Linardos/ModNet/blob/master/Results/plot4.png)
 
 Figure 4: This table demonstrates the results from a ”forgetting” test. After training the
-network on Task 2 I decided to look at whether the original layers remember the first task.
-So I loaded the first layers of the network to predict classes from Task 1. I gathered all of
+network on Task 2 we decided to look at whether the original layers remember the first task.
+So, we loaded the first layers of the network to predict classes from Task 1. We gathered all of
 the data from the previous task and had the networks try and predict whether they are
 seeing an animal or not. The fully connected layer from the previous module was loaded
-and the convolutional layers from the new module. Interestingly decreasing the learning
-rates of the first layers seems to worsen forgetting of the first task. Also I was expecting
-the layers that were frozen when learning task 2 to have the same performance as the
-original model as it is essentially the same. I can only think that some layer was missed
-during freezing to explain that.
+and the convolutional layers from the new module. Decreasing the learning
+rates of the first layers seems to worsen forgetting of the first task. 
+Despite that the layers were frozen when learning task 2 there seems to be forgetting occurence here as well.
 
 # How to Use
 
