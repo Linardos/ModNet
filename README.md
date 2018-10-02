@@ -30,17 +30,6 @@ These transformations are Random Resized Crop and Random Horizontal Flip. Overfi
 drastically reduced. Training on the Frozen model was highly unstable so I increased the
 epoch number for this one
 
-![alt text](https://github.com/Linardos/ModNet/blob/master/Results/plot4.png)
-
-Figure 4: This table demonstrates the results from a ”forgetting” test. After training the
-network on Task 2 we decided to look at whether the original layers remember the first task.
-So, we loaded the first layers of the network to predict classes from Task 1. We gathered all of
-the data from the previous task and had the networks try and predict whether they are
-seeing an animal or not. The fully connected layer from the previous module was loaded
-and the convolutional layers from the new module. Decreasing the learning
-rates of the first layers seems to worsen forgetting of the first task. 
-Despite that the layers were frozen when learning task 2 there seems to be forgetting occurence here as well.
-
 # How to Use
 
 Task_1 : separating animals (canines and felines) from random pictures (flora, rock, geo formations, fungi, construction sites) 
